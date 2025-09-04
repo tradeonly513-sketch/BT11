@@ -1,10 +1,9 @@
-// Safe Performance Optimizer
-export default class PerformanceOptimizer {
+// Safe Performance Optimizer - Fixed Export
+class PerformanceOptimizer {
   constructor(options = {}) {
     this.targets = options.targets || []
     this.originalTransforms = new WeakMap() // Store original transforms for cleanup
   }
-
   _normalizeTargets(target) {
     if (!target) return []
     if (typeof target === 'string') {
@@ -20,7 +19,6 @@ export default class PerformanceOptimizer {
     }
     return []
   }
-
   enableGPUAcceleration() {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
     
@@ -36,7 +34,6 @@ export default class PerformanceOptimizer {
           if (!this.originalTransforms.has(el)) {
             this.originalTransforms.set(el, el.style.transform || '')
           }
-
           const existing = el.style.transform || ''
           if (!/\btranslateZ\(\s*0\s*\)/.test(existing)) {
             el.style.transform = `${existing} translateZ(0)`.trim()
@@ -48,7 +45,6 @@ export default class PerformanceOptimizer {
       })
     })
   }
-
   disableGPUAcceleration() {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
     
@@ -75,15 +71,17 @@ export default class PerformanceOptimizer {
       })
     })
   }
-
   // Method to update targets
   updateTargets(newTargets) {
     this.targets = newTargets || []
   }
-
   // Clean up method
   destroy() {
     this.disableGPUAcceleration()
     this.originalTransforms.clear()
   }
 }
+
+// Export both as default and named export for flexibility
+export default PerformanceOptimizer
+export { PerformanceOptimizer as performanceOptimizer }
