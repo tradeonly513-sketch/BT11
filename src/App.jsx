@@ -1,10 +1,10 @@
 import { Route, Routes } from 'react-router-dom'
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy, useEffect, useRef } from 'react'
 import LoadingFallback from './components/common/LoadingFallback'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/all'
 import useLenis from './hooks/useLenis'
-import { performanceOptimizer, preloadCriticalResources } from './utils/performanceOptimizer'
+import PerformanceOptimizer, { preloadCriticalResources } from './utils/performanceOptimizer'
 
 // Register GSAP plugin once
 gsap.registerPlugin(ScrollTrigger)
@@ -20,13 +20,18 @@ const AffiliateProgram = lazy(() => import('./pages/AffiliateProgram'))
 const App = () => {
   // Initialize Lenis smooth scrolling
   const lenis = useLenis()
+  const optimizerRef = useRef(null)
 
   useEffect(() => {
     // Preload critical resources for better performance
     preloadCriticalResources()
 
-    // Start performance optimizer
-    performanceOptimizer.startRAFLoop()
+    // Create and use the optimizer
+    optimizerRef.current = new PerformanceOptimizer({
+      // adjust targets if needed
+      targets: ['.stair', 'body']
+    })
+    optimizerRef.current.enableGPUAcceleration()
 
     // ✅ Refresh ScrollTrigger on load
     const handleLoad = () => {
@@ -43,10 +48,11 @@ const App = () => {
     requestAnimationFrame(() => {
       document.body.classList.remove('loading')
     })
+
     return () => {
       window.removeEventListener('load', handleLoad)
       cancelAnimationFrame(raf)
-      performanceOptimizer.cleanup()
+      optimizerRef.current?.destroy()
     }
   }, [])
 
@@ -54,17 +60,19 @@ const App = () => {
   useEffect(() => {
     if (lenis) {
       lenis.on('scroll', ScrollTrigger.update)
-      
-      gsap.ticker.add((time) => {
+
+      const tick = (time) => {
         lenis.raf(time * 1000)
-      })
+      }
+      gsap.ticker.add(tick)
 
       return () => {
         lenis.off('scroll', ScrollTrigger.update)
-        gsap.ticker.remove(lenis.raf)
+        gsap.ticker.remove(tick)
       }
     }
   }, [lenis])
+
   return (
     <div className='overflow-x-hidden'>
       <Suspense fallback={<LoadingFallback />}>
