@@ -1,74 +1,154 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/all'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import PerformanceOptimizer from '../utils/performanceOptimizer'
 
+// Register ScrollTrigger plugin
 gsap.registerPlugin(ScrollTrigger)
 
 export default function useOptimizedGSAP() {
   const perfRef = useRef(null)
+  const scrollTriggersRef = useRef([])
 
   useEffect(() => {
+    // Initialize performance optimizer
     perfRef.current = new PerformanceOptimizer()
+
+    // Cleanup function
     return () => {
       try {
-        ScrollTrigger.getAll().forEach((t) => t.kill?.())
-      } catch {}
+        // Kill all created ScrollTriggers
+        scrollTriggersRef.current.forEach((trigger) => {
+          if (trigger && typeof trigger.kill === 'function') {
+            trigger.kill()
+          }
+        })
+        scrollTriggersRef.current = []
+      } catch (err) {
+        console.warn('Failed to kill ScrollTriggers:', err)
+      }
+
       try {
-        perfRef.current?.disableGPUAcceleration()
-      } catch {}
+        // Disable GPU acceleration and cleanup
+        if (perfRef.current) {
+          perfRef.current.destroy()
+        }
+      } catch (err) {
+        console.warn('Failed to cleanup performance optimizer:', err)
+      }
     }
   }, [])
 
-  function createOptimizedScrollTrigger(options = {}) {
-    if (typeof window === 'undefined') return null
-    const { target, targets, onRefresh, ...stOptions } = options
+  const normalizeTargets = useCallback((target) => {
+    if (!target) return []
+    if (typeof target === 'string') {
+      try {
+        return Array.from(document.querySelectorAll(target))
+      } catch {
+        return []
+      }
+    }
+    if (target instanceof Element) return [target]
+    if (NodeList.prototype.isPrototypeOf(target) || Array.isArray(target)) {
+      return Array.from(target).filter((el) => el instanceof HTMLElement)
+    }
+    return []
+  }, [])
 
+  const createOptimizedScrollTrigger = useCallback((options = {}) => {
+    if (typeof window === 'undefined') return null
+
+    const { target, targets, onRefresh, ...stOptions } = options
     let elements = []
-    const normalize = (t) => {
-      if (!t) return []
-      if (typeof t === 'string') return Array.from(document.querySelectorAll(t))
-      if (t instanceof Element) return [t]
-      if (NodeList.prototype.isPrototypeOf(t) || Array.isArray(t)) return Array.from(t)
-      return []
+
+    // Normalize and collect all target elements
+    elements = [
+      ...normalizeTargets(target),
+      ...normalizeTargets(targets)
+    ].filter((el) => el instanceof HTMLElement)
+
+    // If no elements and no explicit trigger, return null
+    if (elements.length === 0 && !stOptions.trigger) {
+      console.warn('No valid targets found for ScrollTrigger')
+      return null
     }
 
-    elements = [...normalize(target), ...normalize(targets)].filter(
-      (el) => el instanceof HTMLElement
-    )
-
-    if (elements.length === 0 && !stOptions.trigger) return null
-
+    // Enable GPU acceleration for target elements
     try {
       if (perfRef.current && elements.length > 0) {
-        perfRef.current.targets = elements
+        perfRef.current.updateTargets(elements)
         perfRef.current.enableGPUAcceleration()
       }
     } catch (err) {
-      console.warn('enableGPUAcceleration failed', err)
+      console.warn('enableGPUAcceleration failed:', err)
     }
 
+    // Create safe onRefresh handler
     const safeOnRefresh = () => {
       try {
-        perfRef.current?.enableGPUAcceleration()
-        if (typeof onRefresh === 'function') onRefresh()
+        // Re-enable GPU acceleration after refresh
+        if (perfRef.current) {
+          perfRef.current.enableGPUAcceleration()
+        }
+        
+        // Call user's onRefresh if provided
+        if (typeof onRefresh === 'function') {
+          onRefresh()
+        }
       } catch (err) {
-        console.warn('onRefresh failed', err)
+        console.warn('onRefresh failed:', err)
       }
     }
 
+    // Create ScrollTrigger with error handling
     try {
-      return ScrollTrigger.create({
+      const trigger = ScrollTrigger.create({
         ...stOptions,
         trigger: stOptions.trigger || elements[0] || null,
         onRefresh: safeOnRefresh,
       })
+
+      // Keep track of created triggers for cleanup
+      if (trigger) {
+        scrollTriggersRef.current.push(trigger)
+      }
+
+      return trigger
     } catch (err) {
-      console.warn('ScrollTrigger.create failed', err)
+      console.warn('ScrollTrigger.create failed:', err)
       return null
     }
-  }
+  }, [normalizeTargets])
 
-  // expose via return, not named export
-  return { createOptimizedScrollTrigger }
+  // Method to manually kill a specific ScrollTrigger
+  const killScrollTrigger = useCallback((trigger) => {
+    if (!trigger) return
+
+    try {
+      trigger.kill()
+      // Remove from tracking array
+      const index = scrollTriggersRef.current.indexOf(trigger)
+      if (index > -1) {
+        scrollTriggersRef.current.splice(index, 1)
+      }
+    } catch (err) {
+      console.warn('Failed to kill ScrollTrigger:', err)
+    }
+  }, [])
+
+  // Method to refresh all ScrollTriggers
+  const refreshScrollTriggers = useCallback(() => {
+    try {
+      ScrollTrigger.refresh()
+    } catch (err) {
+      console.warn('Failed to refresh ScrollTriggers:', err)
+    }
+  }, [])
+
+  return {
+    createOptimizedScrollTrigger,
+    killScrollTrigger,
+    refreshScrollTriggers,
+    performanceOptimizer: perfRef.current
+  }
 }
