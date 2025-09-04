@@ -61,4 +61,14 @@ export default function useOptimizedGSAP() {
       return ScrollTrigger.create({
         ...stOptions,
         trigger: stOptions.trigger || elements[0] || null,
-        onRefresh: safeOnRe
+        onRefresh: safeOnRefresh,
+      })
+    } catch (err) {
+      console.warn('ScrollTrigger.create failed', err)
+      return null
+    }
+  }
+
+  // expose via return, not named export
+  return { createOptimizedScrollTrigger }
+}
