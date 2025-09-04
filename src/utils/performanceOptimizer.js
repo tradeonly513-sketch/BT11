@@ -1,9 +1,8 @@
 // Safe Performance Optimizer
-// No named exports unless we actually create them
-
 export default class PerformanceOptimizer {
   constructor(options = {}) {
     this.targets = options.targets || []
+    this.originalTransforms = new WeakMap() // Store original transforms for cleanup
   }
 
   _normalizeTargets(target) {
@@ -24,16 +23,24 @@ export default class PerformanceOptimizer {
 
   enableGPUAcceleration() {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
+    
     const targetsArr = Array.isArray(this.targets) ? this.targets : [this.targets]
-
+    
     targetsArr.forEach((raw) => {
       const elems = this._normalizeTargets(raw)
       elems.forEach((el) => {
-        if (!(el instanceof HTMLElement)) return // filter out non-HTML nodes
+        if (!(el instanceof HTMLElement)) return
+        
         try {
+          // Store original transform if not already stored
+          if (!this.originalTransforms.has(el)) {
+            this.originalTransforms.set(el, el.style.transform || '')
+          }
+
           const existing = el.style.transform || ''
           if (!/\btranslateZ\(\s*0\s*\)/.test(existing)) {
             el.style.transform = `${existing} translateZ(0)`.trim()
+            el.style.willChange = 'transform' // Also set will-change for better optimization
           }
         } catch (err) {
           console.warn('PerformanceOptimizer failed on element:', err)
@@ -43,6 +50,40 @@ export default class PerformanceOptimizer {
   }
 
   disableGPUAcceleration() {
-    // noop safe
+    if (typeof window === 'undefined' || typeof document === 'undefined') return
+    
+    const targetsArr = Array.isArray(this.targets) ? this.targets : [this.targets]
+    
+    targetsArr.forEach((raw) => {
+      const elems = this._normalizeTargets(raw)
+      elems.forEach((el) => {
+        if (!(el instanceof HTMLElement)) return
+        
+        try {
+          // Restore original transform
+          if (this.originalTransforms.has(el)) {
+            const originalTransform = this.originalTransforms.get(el)
+            el.style.transform = originalTransform
+            this.originalTransforms.delete(el)
+          }
+          
+          // Remove will-change
+          el.style.willChange = ''
+        } catch (err) {
+          console.warn('Failed to disable GPU acceleration:', err)
+        }
+      })
+    })
+  }
+
+  // Method to update targets
+  updateTargets(newTargets) {
+    this.targets = newTargets || []
+  }
+
+  // Clean up method
+  destroy() {
+    this.disableGPUAcceleration()
+    this.originalTransforms.clear()
   }
 }
