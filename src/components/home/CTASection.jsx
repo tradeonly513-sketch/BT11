@@ -1,8 +1,9 @@
 import React, { useRef, useLayoutEffect, useMemo } from 'react'
-import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/all'
 import { Link } from 'react-router-dom'
+import { useOptimizedGSAP, createOptimizedScrollTrigger } from '../../hooks/useOptimizedGSAP'
+import { createOptimizedResizeHandler } from '../../utils/performanceOptimizer'
 
 const CTASection = () => {
   const sectionRef = useRef(null)
@@ -11,7 +12,7 @@ const CTASection = () => {
 
   // Memoize animation configuration for better performance
   const animationConfig = useMemo(() => ({
-    from: { opacity: 0, y: 40, visibility: 'hidden' },
+    from: { opacity: 0, y: 40, visibility: 'hidden', force3D: true },
     to: {
       opacity: 1,
       y: 0,
@@ -19,57 +20,66 @@ const CTASection = () => {
       duration: 0.8,
       ease: 'power2.out',
       stagger: 0.2,
+      force3D: true
     },
-    scrollTrigger: {
-      trigger: sectionRef.current,
-      start: 'top 85%',
-      toggleActions: 'play none none none',
-    }
   }), [])
 
-  useGSAP(() => {
-    const ctx = gsap.context(() => {
-      const elements = gsap.utils.toArray('.cta-fade')
-      if (!elements.length) return
-
-      gsap.fromTo(elements, animationConfig.from, {
-        ...animationConfig.to,
-        scrollTrigger: {
-          ...animationConfig.scrollTrigger,
-          trigger: sectionRef.current,
+  useOptimizedGSAP(() => {
+    createOptimizedScrollTrigger(sectionRef.current, {
+      start: 'top 85%',
+      onEnter: () => {
+        const elements = gsap.utils.toArray('.cta-fade')
+        if (elements.length) {
+          gsap.fromTo(elements, animationConfig.from, animationConfig.to)
         }
-      })
-    }, sectionRef)
+      }
+    })
+  }, [animationConfig], { enableScrollTrigger: true, enableGPUAcceleration: true })
 
-    return () => ctx.revert()
-  }, [animationConfig])
+  // Fallback for elements already in view
+  useOptimizedGSAP(() => {
+    if (sectionRef.current && sectionRef.current.getBoundingClientRect().top < window.innerHeight) {
+      const elements = gsap.utils.toArray('.cta-fade')
+      gsap.to(elements, {
+        opacity: 1,
+        y: 0,
+        visibility: 'visible',
+        duration: 0.8,
+        stagger: 0.2,
+        force3D: true,
+        overwrite: true
+      })
+    }
+  }, [], { enableScrollTrigger: false })
 
   // Optimized refresh handling with debouncing
   useLayoutEffect(() => {
-    let refreshTimeout
-
-    const debouncedRefresh = () => {
-      clearTimeout(refreshTimeout)
-      refreshTimeout = setTimeout(() => {
-        requestAnimationFrame(() => {
-          ScrollTrigger.refresh()
-        })
-      }, 100)
-    }
-
-    const handleLoad = () => debouncedRefresh()
-    const handleResize = () => debouncedRefresh()
+    const handleLoad = createOptimizedResizeHandler(() => {
+      requestAnimationFrame(() => {
+        ScrollTrigger.refresh()
+      })
+    }, { debounceMs: 100 })
+    
+    const handleResize = createOptimizedResizeHandler(() => {
+      requestAnimationFrame(() => {
+        ScrollTrigger.refresh()
+      })
+    }, { debounceMs: 150 })
 
     window.addEventListener('load', handleLoad, { passive: true })
     window.addEventListener('resize', handleResize, { passive: true })
 
-    // Initial refresh
-    debouncedRefresh()
+    // Initial refresh with delay
+    const timer = setTimeout(() => {
+      requestAnimationFrame(() => {
+        ScrollTrigger.refresh()
+      })
+    }, 100)
 
     return () => {
       window.removeEventListener('load', handleLoad)
       window.removeEventListener('resize', handleResize)
-      clearTimeout(refreshTimeout)
+      clearTimeout(timer)
     }
   }, [])
 

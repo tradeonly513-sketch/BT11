@@ -1,81 +1,87 @@
 import React, { useRef } from 'react';
-import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/all';
 import { Link } from 'react-router-dom';
+import { useOptimizedGSAP, createOptimizedScrollTrigger } from '../../hooks/useOptimizedGSAP';
 
 const WhyUsSection = () => {
   const sectionRef = useRef(null);
 
   gsap.registerPlugin(ScrollTrigger);
 
-  useGSAP(() => {
+  useOptimizedGSAP(() => {
     // Animate section title
-    gsap.fromTo(
-      '.why-us-title',
-      {
-        opacity: 0,
-        y: 50,
-      },
-      {
-        opacity: 1,
-        y: 0,
-        duration: 1,
-        ease: 'power2.out',
-        scrollTrigger: {
-          trigger: '.why-us-title',
-          start: 'top 80%',
-          toggleActions: 'play none none none',
-        },
+    createOptimizedScrollTrigger('.why-us-title', {
+      start: 'top 80%',
+      onEnter: () => {
+        gsap.fromTo(
+          '.why-us-title',
+          {
+            opacity: 0,
+            y: 50,
+            force3D: true
+          },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 1,
+            ease: 'power2.out',
+            force3D: true
+          }
+        )
       }
-    );
+    })
 
     // Animate intro text
-    gsap.fromTo(
-      '.intro-text',
-      {
-        opacity: 0,
-        y: 30,
-      },
-      {
-        opacity: 1,
-        y: 0,
-        duration: 0.8,
-        ease: 'power2.out',
-        delay: 0.2,
-        scrollTrigger: {
-          trigger: '.intro-text',
-          start: 'top 80%',
-          toggleActions: 'play none none none',
-        },
+    createOptimizedScrollTrigger('.intro-text', {
+      start: 'top 80%',
+      onEnter: () => {
+        gsap.fromTo(
+          '.intro-text',
+          {
+            opacity: 0,
+            y: 30,
+            force3D: true
+          },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.8,
+            ease: 'power2.out',
+            delay: 0.2,
+            force3D: true
+          }
+        )
       }
-    );
+    })
 
     // Animate benefit cards with stagger
-    gsap.fromTo(
-      '.benefit-card',
-      {
-        opacity: 0,
-        y: 40,
-        scale: 0.95,
-      },
-      {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        duration: 0.8,
-        ease: 'power2.out',
-        stagger: {
-          amount: 0.4,
-        },
-        scrollTrigger: {
-          trigger: '.benefits-grid',
-          start: 'top 75%',
-          toggleActions: 'play none none none',
-        },
+    createOptimizedScrollTrigger('.benefits-grid', {
+      start: 'top 75%',
+      onEnter: () => {
+        gsap.fromTo(
+          '.benefit-card',
+          {
+            opacity: 0,
+            y: 40,
+            scale: 0.95,
+            force3D: true
+          },
+          {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            duration: 0.8,
+            ease: 'power2.out',
+            stagger: {
+              amount: 0.4,
+            },
+            force3D: true
+          }
+        )
       }
-    );
-  });
+    })
+  }, [], { enableScrollTrigger: true, enableGPUAcceleration: true })
 
   const benefits = [
     {

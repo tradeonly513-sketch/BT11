@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react'
 import gsap from 'gsap'
 import { Link } from 'react-router-dom'
+import { performanceOptimizer, optimizeVideoLoading } from '../../utils/performanceOptimizer'
 
 // 🔹 Video data (same as your Projects page)
 const teasers = [
@@ -45,13 +46,31 @@ const PortfolioSection = () => {
   const allVideos = [...teasers, ...highlights]
 
   useEffect(() => {
-    // Infinite marquee scroll effect
-    gsap.to(trackRef.current, {
-      xPercent: -50, // move half its width
+    // Optimized infinite marquee scroll effect
+    const marqueeAnimation = gsap.to(trackRef.current, {
+      xPercent: -50,
       repeat: -1,
-      duration: 40, // adjust speed
-      ease: "linear"
+      duration: 45, // Slightly slower for smoother feel
+      ease: "none", // Linear for consistent speed
+      force3D: true
     })
+
+    // Optimize video iframes for performance
+    const videoIframes = trackRef.current?.querySelectorAll('iframe')
+    videoIframes?.forEach(iframe => {
+      iframe.loading = 'lazy'
+      iframe.style.willChange = 'transform'
+    })
+
+    return () => {
+      marqueeAnimation.kill()
+    }
+  }, [])
+
+  // Optimize video loading on mount
+  useEffect(() => {
+    const videos = document.querySelectorAll('.portfolio-showcase video')
+    videos.forEach(optimizeVideoLoading)
   }, [])
 
   return (

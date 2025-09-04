@@ -1,53 +1,88 @@
 import React, { useRef } from 'react'
-import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/all'
+import { useOptimizedGSAP, createOptimizedScrollTrigger } from '../../hooks/useOptimizedGSAP'
 
 const AboutSection = () => {
   const sectionRef = useRef(null)
   
   gsap.registerPlugin(ScrollTrigger)
 
-  useGSAP(() => {
-    gsap.fromTo('.about-title',
-      {
-        opacity: 0,
-        y: 50
-      },
-      {
-        opacity: 1,
-        y: 0,
-        duration: 1,
-        ease: "power2.out",
-        scrollTrigger: {
-          trigger: '.about-title',
-          start: 'top 80%',
-          toggleActions: 'play none none none'
-        }
+  useOptimizedGSAP(() => {
+    createOptimizedScrollTrigger('.about-title', {
+      start: 'top 80%',
+      onEnter: () => {
+        gsap.fromTo('.about-title',
+          {
+            opacity: 0,
+            y: 50,
+            force3D: true
+          },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 1,
+            ease: "power2.out",
+            force3D: true
+          }
+        )
       }
-    )
+    })
 
-    gsap.fromTo('.about-content',
-      {
-        opacity: 0,
-        y: 30
-      },
+    createOptimizedScrollTrigger('.about-grid', {
+      start: 'top 75%',
+      onEnter: () => {
+        gsap.fromTo('.about-content',
+          {
+            opacity: 0,
+            y: 30,
+            force3D: true
+          },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.8,
+            ease: "power2.out",
+            stagger: {
+              amount: 0.3
+            },
+            force3D: true
+          }
+        )
+      }
+    })
+  }, [], { enableScrollTrigger: true, enableGPUAcceleration: true })
+
+  // Fallback animation for elements already in view
+  useOptimizedGSAP(() => {
+    const aboutTitle = document.querySelector('.about-title')
+    const aboutGrid = document.querySelector('.about-grid')
+    
+    if (aboutTitle && aboutTitle.getBoundingClientRect().top < window.innerHeight) {
+      gsap.to('.about-title',
       {
         opacity: 1,
         y: 0,
         duration: 0.8,
         ease: "power2.out",
-        stagger: {
-          amount: 0.3
-        },
-        scrollTrigger: {
-          trigger: '.about-grid',
-          start: 'top 75%',
-          toggleActions: 'play none none none'
-        }
+        force3D: true,
+        overwrite: true
       }
-    )
-  })
+      )
+    }
+    
+    if (aboutGrid && aboutGrid.getBoundingClientRect().top < window.innerHeight) {
+      gsap.to('.about-content', {
+        opacity: 1,
+        y: 0,
+        duration: 0.8,
+        ease: "power2.out",
+        stagger: 0.2,
+        force3D: true,
+        overwrite: true
+      })
+    }
+  }, [], { enableScrollTrigger: false })
 
   return (
     <section id="about" ref={sectionRef} className='min-h-screen section-dark-alt text-white relative depth-3 section-transition'>

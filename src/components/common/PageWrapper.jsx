@@ -1,9 +1,9 @@
 import React, { useRef, useEffect } from 'react'
-import { useGSAP } from '@gsap/react'
-import gsap from 'gsap'
 import { useLocation } from 'react-router-dom'
 import { ScrollTrigger } from 'gsap/all'
 import BackToHome from './BackToHome'
+import { useOptimizedGSAP } from '../../hooks/useOptimizedGSAP'
+import gsap from 'gsap'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -13,12 +13,24 @@ const PageWrapper = ({ children, className = '' }) => {
 
   // Reset scroll position on route change
   useEffect(() => {
-    window.scrollTo(0, 0)
+    // Smooth scroll to top on route change
+    gsap.to(window, {
+      duration: 0.8,
+      scrollTo: { y: 0, autoKill: false },
+      ease: "power2.out"
+    })
+    
     // Force refresh ScrollTrigger whenever route changes
-    setTimeout(() => ScrollTrigger.refresh(), 100)
+    const timer = setTimeout(() => {
+      requestAnimationFrame(() => {
+        ScrollTrigger.refresh()
+      })
+    }, 150)
+    
+    return () => clearTimeout(timer)
   }, [location.pathname])
 
-  useGSAP(() => {
+  useOptimizedGSAP(() => {
     gsap.set(pageRef.current, { opacity: 1 })
 
     gsap.fromTo(
@@ -31,9 +43,10 @@ const PageWrapper = ({ children, className = '' }) => {
         ease: 'power2.out',
         stagger: 0.1,
         delay: 0.3,
+        force3D: true
       }
     )
-  }, [location.pathname])
+  }, [location.pathname], { enableScrollTrigger: true, refreshOnResize: true })
 
   return (
     <>

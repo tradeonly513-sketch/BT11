@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
+import { createOptimizedScrollHandler } from '../../utils/performanceOptimizer'
 
 const Header = () => {
   const headerRef = useRef(null)
@@ -11,10 +12,10 @@ const Header = () => {
 
   // Handle scroll state for subtle background changes
   useEffect(() => {
-    const handleScroll = () => {
+    const handleScroll = createOptimizedScrollHandler(() => {
       const scrolled = window.scrollY > 50
       setIsScrolled(scrolled)
-    }
+    }, { throttleMs: 16, useRAF: true })
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
@@ -85,7 +86,13 @@ const Header = () => {
       e.preventDefault()
       const element = document.getElementById(href.substring(1))
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        // Use optimized smooth scrolling
+        const targetPosition = element.offsetTop - 80
+        gsap.to(window, {
+          duration: 1.2,
+          scrollTo: { y: targetPosition, autoKill: false },
+          ease: "power2.inOut"
+        })
       }
     }
     // Close mobile menu after navigation

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react'
-import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/all'
+import { useOptimizedGSAP, createOptimizedScrollTrigger } from '../../hooks/useOptimizedGSAP'
 
 const StatsSection = () => {
   const sectionRef = useRef(null)
@@ -38,74 +38,78 @@ const StatsSection = () => {
   gsap.registerPlugin(ScrollTrigger)
 
   // Counter animation function
-  const animateCounter = (element, finalNumber, duration = 2) => {
+  const animateCounter = (element, finalNumber, duration = 2.5) => {
     const counter = { value: 0 }
     
     gsap.to(counter, {
       value: finalNumber,
       duration: duration,
-      ease: "power2.out",
+      ease: "power2.inOut",
+      force3D: true,
       onUpdate: () => {
         element.textContent = Math.floor(counter.value).toLocaleString()
       }
     })
   }
 
-  useGSAP(() => {
+  useOptimizedGSAP(() => {
     // Animate section title
-    gsap.fromTo('.stats-title',
-      {
-        opacity: 0,
-        y: 50
-      },
-      {
-        opacity: 1,
-        y: 0,
-        duration: 1,
-        ease: "power2.out",
-        scrollTrigger: {
-          trigger: '.stats-title',
-          start: 'top 80%',
-          toggleActions: 'play none none none'
-        }
-      }
-    )
-
-    // Animate stat cards with stagger
-    gsap.fromTo('.stat-card',
-      {
-        opacity: 0,
-        y: 40,
-        scale: 0.95
-      },
-      {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        duration: 0.8,
-        ease: "power2.out",
-        stagger: {
-          amount: 0.3
-        },
-        scrollTrigger: {
-          trigger: '.stats-grid',
-          start: 'top 75%',
-          toggleActions: 'play none none none',
-          onEnter: () => {
-            if (!hasAnimated) {
-              // Trigger counter animations
-              setTimeout(() => {
-                document.querySelectorAll('.counter-number').forEach((counter, index) => {
-                  animateCounter(counter, statsData[index].number, 2.5)
-                })
-                setHasAnimated(true)
-              }, 400)
-            }
+    createOptimizedScrollTrigger('.stats-title', {
+      start: 'top 80%',
+      onEnter: () => {
+        gsap.fromTo('.stats-title',
+          {
+            opacity: 0,
+            y: 50,
+            force3D: true
+          },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 1,
+            ease: "power2.out",
+            force3D: true
           }
+        )
+      }
+    })
+
+    createOptimizedScrollTrigger('.stats-grid', {
+      start: 'top 75%',
+      onEnter: () => {
+        if (!hasAnimated) {
+          gsap.fromTo('.stat-card',
+            {
+              opacity: 0,
+              y: 40,
+              scale: 0.95,
+              force3D: true
+            },
+            {
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              duration: 0.8,
+              ease: "power2.out",
+              stagger: {
+                amount: 0.3
+              },
+              force3D: true,
+              onComplete: () => {
+                // Trigger counter animations after cards are visible
+                setTimeout(() => {
+                  document.querySelectorAll('.counter-number').forEach((counter, index) => {
+                    animateCounter(counter, statsData[index].number, 2.5)
+                  })
+                  setHasAnimated(true)
+                }, 200)
+              }
+            }
+          )
         }
       }
-    )
-  }, [hasAnimated])
+    })
+  }, [hasAnimated], { enableScrollTrigger: true, enableGPUAcceleration: true })
 
   return (
     <section id="stats" ref={sectionRef} className='min-h-screen section-dark text-white relative depth-3 section-transition'>

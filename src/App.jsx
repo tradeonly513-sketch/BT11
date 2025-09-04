@@ -3,6 +3,8 @@ import { Suspense, lazy, useEffect } from 'react'
 import LoadingFallback from './components/common/LoadingFallback'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/all'
+import useLenis from './hooks/useLenis'
+import { performanceOptimizer, preloadCriticalResources } from './utils/performanceOptimizer'
 
 // Register GSAP plugin once
 gsap.registerPlugin(ScrollTrigger)
@@ -16,7 +18,16 @@ const TermsOfService = lazy(() => import('./pages/TermsOfService'))
 const AffiliateProgram = lazy(() => import('./pages/AffiliateProgram'))
 
 const App = () => {
+  // Initialize Lenis smooth scrolling
+  const lenis = useLenis()
+
   useEffect(() => {
+    // Preload critical resources for better performance
+    preloadCriticalResources()
+
+    // Start performance optimizer
+    performanceOptimizer.startRAFLoop()
+
     // ✅ Refresh ScrollTrigger on load
     const handleLoad = () => {
       ScrollTrigger.refresh()
@@ -28,12 +39,32 @@ const App = () => {
       ScrollTrigger.refresh()
     })
 
+    // Optimize initial render
+    requestAnimationFrame(() => {
+      document.body.classList.remove('loading')
+    })
     return () => {
       window.removeEventListener('load', handleLoad)
       cancelAnimationFrame(raf)
+      performanceOptimizer.cleanup()
     }
   }, [])
 
+  // Sync GSAP ScrollTrigger with Lenis
+  useEffect(() => {
+    if (lenis) {
+      lenis.on('scroll', ScrollTrigger.update)
+      
+      gsap.ticker.add((time) => {
+        lenis.raf(time * 1000)
+      })
+
+      return () => {
+        lenis.off('scroll', ScrollTrigger.update)
+        gsap.ticker.remove(lenis.raf)
+      }
+    }
+  }, [lenis])
   return (
     <div className='overflow-x-hidden'>
       <Suspense fallback={<LoadingFallback />}>
